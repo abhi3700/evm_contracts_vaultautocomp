@@ -8,6 +8,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+import "forge-std/console.sol";
+
 contract AutoCompVault is Ownable, Pausable, ReentrancyGuard, ERC20 {
     using SafeERC20 for IERC20;
 
@@ -29,11 +31,18 @@ contract AutoCompVault is Ownable, Pausable, ReentrancyGuard, ERC20 {
 
     uint256 public lastDepositedTimestamp;
 
-    uint256 public immutable yieldPercentage; // in percentage i.e. 0.5% = 0.005 => represented as 1e18
+    // in percentage i.e. 0.5% = 0.005 => represented as 1e5 (scaling_factor) => 500
+    // NOTE: We can put this scaling factor as high as possible i.e. 1e18,
+    // but then during division it would lose the precision. Hence, choose as small as possible.
+    // Hence, keep the scaling_factor as low as possible.
+    // make sure during arithmetic, you divide by 1e5
+    uint32 public immutable yieldPercentage;
 
-    uint256 public immutable yieldDuration; // in seconds
+    uint32 public immutable yieldDuration; // in seconds
 
-    bool public isFirstDepositDone;
+    uint32 public constant scalingFactor = 1e5;
+
+    bool public isFirstDepositDone; // FIXME: instead checked with `totalDeposited`
 
     // ======Events======
     event Deposited(address indexed user, uint256 depositAmount, uint256 receiptAmount);
@@ -47,8 +56,9 @@ contract AutoCompVault is Ownable, Pausable, ReentrancyGuard, ERC20 {
     error InvalidToken();
     error InsufficientDepositAllowance();
     error InsufficientReceiptBalance();
+    error ZeroPPFS();
 
-    constructor(address _token, uint256 _yieldPercentage, uint32 _yieldDuration) ERC20("Receipt Token", "RCRVstETH") {
+    constructor(address _token, uint32 _yieldPercentage, uint32 _yieldDuration) ERC20("Receipt Token", "RCRVstETH") {
         if (_token == address(0)) {
             revert ZeroAddress();
         }
@@ -86,17 +96,33 @@ contract AutoCompVault is Ownable, Pausable, ReentrancyGuard, ERC20 {
 
     // ======private======
 
-    /// @dev get the PPFS (price per full share)
-    function getPPFS() private view returns (uint256) {
-        // current accrued interest percentage
-        uint256 currentAccruedInterestPercentage =
-            ((block.timestamp - lastDepositedTimestamp) * yieldPercentage) / yieldDuration;
+    /// @dev get the PPFS (price per full share) i.e.
+    // (total_deposited_amount with accrued interest over time) is divided by (total_shares)
+    // During `deposit`:
+    function getPPFS() public view returns (uint256) {
+        uint256 ppfs = 1; // initially 1 when zero total deposited amount
 
-        // total deposited amount with interest
-        uint256 totalDepositedWithInterest = totalDeposited + (totalDeposited * currentAccruedInterestPercentage) / 1e18;
+        if (totalDeposited != 0) {
+            // 1. current accrued interest percentage
+            // in decimal
+            uint256 currentAccruedInterestPercentage =
+                (block.timestamp - lastDepositedTimestamp) * (yieldPercentage / yieldDuration);
 
-        // price per full share
-        uint256 ppfs = totalDepositedWithInterest / totalShares();
+            console.log("getPPFS::currentAccruedInterestPercentage: ", currentAccruedInterestPercentage);
+            // 2. total deposited amount with interest
+            // NOTE: divide by 1e18 is done in step-2 here as because in the previous step, it was becoming
+            uint256 totalDepositedWithInterest = totalDeposited * (1 + currentAccruedInterestPercentage / scalingFactor);
+            // uint256 totalDepositedWithInterest =
+            //     totalDeposited + totalDeposited * currentAccruedInterestPercentage / scalingFactor;
+            console.log("getPPFS::totalDepositedWithInterest: ", totalDepositedWithInterest);
+            console.log("getPPFS::totalShares: ", totalShares());
+
+            // 3. price per full share
+            // NOTE: 1e18 is multiplied to get the precision
+            // Actual value can be computed offchain by dividing by 1e18 as float type.
+            ppfs = (totalDepositedWithInterest * 1e18) / totalShares();
+            console.log("getPPFS::ppfs: ", ppfs);
+        }
 
         return ppfs;
     }
@@ -118,18 +144,41 @@ contract AutoCompVault is Ownable, Pausable, ReentrancyGuard, ERC20 {
             revert InsufficientDepositAllowance();
         }
 
-        // update the caller's vault i.e. deposited amount
-        vaults[msg.sender] += _amount;
-
         // calculate receipt token amount
         uint256 receiptAmt = 0;
 
-        // if first deposit, then mint receipt token = deposit token as PPFS = 1, else calculated based on PPFS
-        if (isFirstDepositDone) {
+        // if total deposited is zero, then mint receipt token = deposit token as PPFS = 1, else calculated based on PPFS
+        if (totalDeposited == 0) {
+            isFirstDepositDone = true; // TODO: not sure about usage
             receiptAmt = _amount;
+
+            // update the caller's & total vault i.e. deposited amount
+            vaults[msg.sender] = _amount;
+            totalDeposited = _amount;
         } else {
-            receiptAmt = _amount / getPPFS();
+            uint256 ppfs = getPPFS();
+            if (ppfs == 0) {
+                revert ZeroPPFS();
+            }
+
+            // NOTE: Need to divide by 1e18
+            receiptAmt = _amount * 1e18 / ppfs; // more precision
+            // receiptAmt = _amount / (ppfs / 1e18); // less precision
+
+            // update the caller's & total vault i.e. deposited amount with accrued interest
+            uint256 previousDepositedAmt = vaults[msg.sender];
+
+            uint256 accruedInterestOfprevDepositedAmt =
+                (previousDepositedAmt * (block.timestamp - lastDepositedTimestamp) * yieldPercentage / yieldDuration);
+
+            console.log("accruedInterestOfprevDepositedAmt: ", accruedInterestOfprevDepositedAmt);
+
+            vaults[msg.sender] = previousDepositedAmt + _amount + accruedInterestOfprevDepositedAmt / scalingFactor;
+            totalDeposited += _amount + accruedInterestOfprevDepositedAmt / scalingFactor;
         }
+
+        // update the last_deposit_timestamp
+        lastDepositedTimestamp = block.timestamp;
 
         // mint receipt token to msg.sender
         _mint(msg.sender, receiptAmt);
@@ -150,8 +199,13 @@ contract AutoCompVault is Ownable, Pausable, ReentrancyGuard, ERC20 {
         // calculate redeemable amount
         uint256 redeemableAmount = _receiptAmount * getPPFS();
 
-        // update the caller's vault  i.e. deposited amount
-        vaults[msg.sender] -= redeemableAmount;
+        // update the caller's & Total vault  i.e. deposited amount
+        vaults[msg.sender] -= redeemableAmount; // TODO: add accrued interest
+        totalDeposited -= redeemableAmount; // TODO: add accrued interest
+
+        if (totalDeposited == 0) {
+            isFirstDepositDone = false;
+        }
 
         // burn receipt token from msg.sender
         _burn(msg.sender, _receiptAmount);

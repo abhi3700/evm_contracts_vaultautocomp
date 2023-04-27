@@ -26,7 +26,7 @@ It is assumed that whenever someone deposits into the vault, the vault will auto
 
 `CRV:stETH` Deposit Token is generally a LP Token of `CRV:stETH` Pool. And it is based on ERC20 standard. But, we created a mock `DepositToken.sol` for testing purpose.
 
-- IDepositToken.sol
+- `IDepositToken.sol` is publicly available.
 
 ### Architecture
 

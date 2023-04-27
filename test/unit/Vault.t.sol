@@ -28,6 +28,7 @@ contract VaultTest is Test {
     address public charlie;
     address public dave;
     address public eve;
+    address public isaac;
 
     function setUp() public {
         // set addresses
@@ -37,6 +38,7 @@ contract VaultTest is Test {
         charlie = address(3);
         dave = address(4);
         eve = address(5);
+        isaac = address(6);
 
         // deploy token SC
         token = new DepositToken("CRV:stETH Token", "CRVstETH", 1_000_0001e18);
@@ -58,9 +60,9 @@ contract VaultTest is Test {
         //-----------------
 
         // deploy acvault SC
-        // yield percentage set to 0.1% per day i.e. 0.001 => fed as 1e15
+        // yield percentage set to 0.1% per day i.e. 0.001 => fed as 100
         // yield duration set to 1 day i.e. 86400 seconds
-        acvault = new AutoCompVault(address(token), 1e15, ONE_DAY);
+        acvault = new AutoCompVault(address(token), 100, ONE_DAY);
     }
 
     //###############Ownable###############
@@ -102,6 +104,17 @@ contract VaultTest is Test {
     function testPauseWhenNotPaused() public {
         acvault.pause();
         assertEq(acvault.paused(), true);
+    }
+
+    function testRevertPauseWhenPaused() public {
+        acvault.pause();
+        vm.expectRevert("Pausable: paused");
+        acvault.pause();
+    }
+
+    function testUnpauseWhenNotPaused() public {
+        vm.expectRevert("Pausable: not paused");
+        acvault.unpause();
     }
 
     function testUnpauseWhenPaused() public {
@@ -174,6 +187,37 @@ contract VaultTest is Test {
     function testRevertDepositZeroAmount() public {
         vm.expectRevert(AutoCompVault.ZeroAmount.selector);
         acvault.deposit(IDepositToken(address(token)), 0);
+    }
+
+    function testRevertDepositInsufficientBalance() public {
+        vm.expectRevert();
+        vm.prank(isaac);
+        acvault.deposit(IDepositToken(address(token)), 1e18);
+    }
+
+    function testRevertDepositWhenPaused() public {
+        acvault.pause();
+        vm.prank(alice);
+        vm.expectRevert();
+        acvault.deposit(IDepositToken(address(token)), 1e18);
+    }
+
+    function testRevertDepositWhenTokenNotApproved() public {
+        vm.prank(alice);
+        vm.expectRevert(AutoCompVault.InsufficientDepositAllowance.selector);
+        acvault.deposit(IDepositToken(address(token)), 1e18);
+    }
+
+    function testDeposit() public {
+        uint256 sharesBefore = acvault.sharesOf(alice);
+        vm.startPrank(alice);
+        token.approve(address(acvault), 1e18);
+        acvault.deposit(IDepositToken(address(token)), 1e18);
+        assertEq(acvault.totalDeposited(), 1e18);
+
+        uint256 sharesAfter = acvault.sharesOf(alice);
+        assertTrue(sharesAfter > sharesBefore);
+        assertTrue(sharesAfter == 1e18); // when 1st time deposit
     }
 
     // ----withdraw----
