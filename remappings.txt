@@ -1,1 +1,1 @@
-@opezeppelin/=node_modules/@openzeppelin/
+@openzeppelin/=node_modules/@openzeppelin/

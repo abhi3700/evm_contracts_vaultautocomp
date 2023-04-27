@@ -4,6 +4,16 @@
 
 This is a vault that autocompound the yield when deposited.
 
+> Shares Amount & Receipt Amount are used synonymously.
+
+To deploy the contract with an Yield interest of 0.1% (0.001 in decimal representation) per day, you would use the following value as the constructor argument:
+
+```
+0.001 * 10^18 = 1000000000000000
+```
+
+In the FE UI, the value would be fed in wei, which is 18 decimal places. User might write 0.1% as 0.1, but it is fed as `0.001 * 1e18` in the contract.
+
 ### Architecture
 
 Here is the user workflow to **deposit** token into Vault:
@@ -34,7 +44,7 @@ participant CRVstETH
 participant RCRVstETH
 Alice->>Vault: `withdraw` to redeem CRVstETH
 Vault->>RCRVstETH: `burn` tokens
-Vault->>+CRVstETH: `transfer` tokens
+Vault->+CRVstETH: `transfer` tokens
 CRVstETH->>-Alice: to Alice
 ```
 
