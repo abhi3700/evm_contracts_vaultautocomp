@@ -3,14 +3,23 @@ pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol"; // TODO: for debugging, not production
-import {Vault} from "src/Vault.sol";
+import {AutoCompVault} from "src/AutoCompVault.sol";
 import "src/DepositToken.sol";
+import "src/interfaces/IDepositToken.sol";
 
+/// @dev Test Contract for AutoCompVault
 contract VaultTest is Test {
-    Vault public vault;
+    // contracts
+    AutoCompVault public acvault;
     DepositToken public token; // deposit token
 
+    // constants
     address public constant ZERO_ADDRESS = address(0);
+    uint32 public constant ZERO_AMOUNT = 0;
+    uint32 public constant ONE_DAY = 86400; // in seconds
+    uint32 public constant ONE_WEEK = 604800; // in seconds
+    uint32 public constant ONE_MONTH = 2592000; // in seconds
+    uint32 public constant ONE_YEAR = 31536000; // in seconds
 
     // addresses
     address public owner;
@@ -32,125 +41,140 @@ contract VaultTest is Test {
         // deploy token SC
         token = new DepositToken("CRV:stETH Token", "CRVstETH", 1_000_0001e18);
 
-        // deploy vault SC
-        // yield set to 0.1% per day i.e. 0.001 => fed as 1e15
-        vault = new Vault(address(token), 1e15);
+        // mint 100 tokens to alice, bob, charlie, dave, eve
+        token.mint(alice, 100e18);
+        token.mint(bob, 100e18);
+        token.mint(charlie, 100e18);
+        token.mint(dave, 100e18);
+        token.mint(eve, 100e18);
+
+        // assert balances
+        assertEq(token.balanceOf(alice), 100e18);
+        assertEq(token.balanceOf(bob), 100e18);
+        assertEq(token.balanceOf(charlie), 100e18);
+        assertEq(token.balanceOf(dave), 100e18);
+        assertEq(token.balanceOf(eve), 100e18);
+
+        //-----------------
+
+        // deploy acvault SC
+        // yield percentage set to 0.1% per day i.e. 0.001 => fed as 1e15
+        // yield duration set to 1 day i.e. 86400 seconds
+        acvault = new AutoCompVault(address(token), 1e15, ONE_DAY);
     }
 
     //###############Ownable###############
     function testGetOwner() public {
-        assertEq(vault.owner(), owner);
+        assertEq(acvault.owner(), owner);
     }
 
     function testTransferOwnership() public {
-        vault.transferOwnership(alice);
-        assertEq(vault.owner(), alice);
+        acvault.transferOwnership(alice);
+        assertEq(acvault.owner(), alice);
     }
 
     function testRevertTransferOwnershipByNonOwner() public {
         vm.prank(alice);
         vm.expectRevert("Ownable: caller is not the owner");
-        vault.transferOwnership(bob);
+        acvault.transferOwnership(bob);
     }
 
     // [OPTIONAL]
     function testTransferOwnershipToSelf() public {
-        vault.transferOwnership(owner);
+        acvault.transferOwnership(owner);
     }
 
     function testRevertTransferOwnershipToZeroAddress() public {
         vm.expectRevert("Ownable: new owner is the zero address");
-        vault.transferOwnership(ZERO_ADDRESS);
+        acvault.transferOwnership(ZERO_ADDRESS);
     }
 
     function testRenounceOwnership() public {
-        vault.renounceOwnership();
-        assertEq(vault.owner(), ZERO_ADDRESS);
+        acvault.renounceOwnership();
+        assertEq(acvault.owner(), ZERO_ADDRESS);
     }
     //###############Pausable###############
 
     function testGetPauseStatus() public {
-        assertEq(vault.paused(), false);
+        assertEq(acvault.paused(), false);
     }
 
     function testPauseWhenNotPaused() public {
-        vault.pause();
-        assertEq(vault.paused(), true);
+        acvault.pause();
+        assertEq(acvault.paused(), true);
     }
 
     function testUnpauseWhenPaused() public {
-        vault.pause();
-        vault.unpause();
-        assertEq(vault.paused(), false);
+        acvault.pause();
+        acvault.unpause();
+        assertEq(acvault.paused(), false);
     }
 
     function testRevertWhenPausedByNonOwner() public {
         vm.prank(alice);
         vm.expectRevert("Ownable: caller is not the owner");
-        vault.pause();
+        acvault.pause();
     }
 
     function testRevertWhenUnpausedByNonOwner() public {
-        vault.pause();
+        acvault.pause();
         vm.prank(alice);
         vm.expectRevert("Ownable: caller is not the owner");
-        vault.unpause();
+        acvault.unpause();
     }
 
-    //###############Vault###############
+    //###############AutoCompVault###############
 
     //===Getters===
-    function testGetYieldInterest() public {
-        assertEq(vault.dailyield(), 1e15);
+    function testGetYieldPercentage() public {
+        assertEq(acvault.yieldPercentage(), 1e15);
+    }
+
+    function testGetYieldDuration() public {
+        assertEq(acvault.yieldDuration(), ONE_DAY);
     }
 
     function testGetDepositToken() public {
-        assertEq(address(vault.depositToken()), address(token));
-    }
-
-    function testGetReceiptToken() public {
-        // M-1: check if receipt token is deployed
-        // assertTrue(address(vault.receiptToken()) != ZERO_ADDRESS);
-
-        // M-2: check the code size of the contract
-        address _rToken = address(vault.receiptToken());
-
-        uint256 hevmCodeSize = 0;
-        assembly {
-            hevmCodeSize := extcodesize(_rToken)
-        }
-        assertTrue(hevmCodeSize > 0);
+        assertEq(address(acvault.depositToken()), address(token));
     }
 
     function testGetTotalDeposited() public {
-        assertEq(vault.totalDeposited(), 0);
+        assertEq(acvault.totalDeposited(), 0);
     }
 
     function testGetTotalShares() public {
-        assertEq(vault.totalShares(), 0);
+        assertEq(acvault.totalShares(), 0);
     }
 
     /// @dev test the total shares of a user - 'alice'
     /// for generic case, write fuzz test with random addresses
     function testGetDepositedAmtOf() public {
-        assertEq(vault.sharesOf(alice), 0);
+        assertEq(acvault.sharesOf(alice), 0);
     }
 
     /// @dev test the total shares of a user - 'alice'
     /// for generic case, write fuzz test with random addresses
     function testGetSharesAmtOf() public {
-        assertEq(vault.sharesOf(alice), 0);
+        assertEq(acvault.sharesOf(alice), 0);
+    }
+
+    function testGetLastDepositedTimestamp() public {
+        assertEq(acvault.lastDepositedTimestamp(), 0);
     }
 
     //===Setters===
 
+    // ----deposit----
+
     function testRevertDepositInvalidToken() public {
-        vm.expectRevert(Vault.InvalidToken.selector);
-        vault.deposit(IERC20(address(123)), 100e18);
+        vm.expectRevert(AutoCompVault.InvalidToken.selector);
+        acvault.deposit(IDepositToken(address(123)), 100e18);
     }
 
     function testRevertDepositZeroAmount() public {
-        vm.expectRevert(Vault.ZeroAmount.selector);
-        vault.deposit(token, 0);
+        vm.expectRevert(AutoCompVault.ZeroAmount.selector);
+        acvault.deposit(IDepositToken(address(token)), 0);
     }
+
+    // ----withdraw----
 }

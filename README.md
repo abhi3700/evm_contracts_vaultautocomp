@@ -4,15 +4,29 @@
 
 This is a vault that autocompound the yield when deposited.
 
+> Stake Amount & Deposit Amount are used synonymously.
+>
 > Shares Amount & Receipt Amount are used synonymously.
 
-To deploy the contract with an Yield interest of 0.1% (0.001 in decimal representation) per day, you would use the following value as the constructor argument:
+To deploy the contract with an APY of 0.1% (0.001 in decimal representation) per day, you would use the following value as the constructor argument:
 
 ```
 0.001 * 10^18 = 1000000000000000
 ```
 
 In the FE UI, the value would be fed in wei, which is 18 decimal places. User might write 0.1% as 0.1, but it is fed as `0.001 * 1e18` in the contract.
+
+---
+
+It is assumed that whenever someone deposits into the vault, the vault will automatically compound the yield based on the APY set during deployment.
+
+> Suppose, if someone stakes token for a month, still the accrued yield will be compounded for the whole month.
+
+---
+
+`CRV:stETH` Deposit Token is generally a LP Token of `CRV:stETH` Pool. And it is based on ERC20 standard. But, we created a mock `DepositToken.sol` for testing purpose.
+
+- IDepositToken.sol
 
 ### Architecture
 
