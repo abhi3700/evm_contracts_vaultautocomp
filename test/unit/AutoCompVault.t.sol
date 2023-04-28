@@ -8,7 +8,7 @@ import "src/DepositToken.sol";
 import "src/interfaces/IDepositToken.sol";
 
 /// @dev Test Contract for AutoCompVault
-contract VaultTest is Test {
+contract AutoCompVaultTest is Test {
     // contracts
     AutoCompVault public acvault;
     DepositToken public token; // deposit token
@@ -140,7 +140,7 @@ contract VaultTest is Test {
 
     //===Getters===
     function testGetYieldPercentage() public {
-        assertEq(acvault.yieldPercentage(), 1e15);
+        assertEq(acvault.yieldPercentage(), 100);
     }
 
     function testGetYieldDuration() public {
@@ -218,6 +218,7 @@ contract VaultTest is Test {
         uint256 sharesAfter = acvault.sharesOf(alice);
         assertTrue(sharesAfter > sharesBefore);
         assertTrue(sharesAfter == 1e18); // when 1st time deposit
+        vm.stopPrank();
     }
 
     // ----withdraw----
