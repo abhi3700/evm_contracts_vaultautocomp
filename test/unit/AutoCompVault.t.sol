@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol"; // TODO: for debugging, not production
+import "forge-std/console.sol"; // NOTE: for debugging, not production
 import {AutoCompVault} from "src/AutoCompVault.sol";
 import "src/DepositToken.sol";
 import "src/interfaces/IDepositToken.sol";
@@ -29,6 +29,10 @@ contract AutoCompVaultTest is Test {
     address public dave;
     address public eve;
     address public isaac;
+
+    // events
+    event Deposited(address indexed user, uint256 depositAmount, uint256 shareAmount);
+    event Redeemed(address indexed user, uint256 shareAmount, uint256 redeemableAmount);
 
     function setUp() public {
         // set addresses
@@ -152,7 +156,7 @@ contract AutoCompVaultTest is Test {
     }
 
     function testGetTotalDeposited() public {
-        assertEq(acvault.totalDeposited(), 0);
+        assertEq(acvault.totalDepositBalance(), 0);
     }
 
     function testGetTotalShares() public {
@@ -172,7 +176,7 @@ contract AutoCompVaultTest is Test {
     }
 
     function testGetLastDepositedTimestamp() public {
-        assertEq(acvault.lastDepositedTimestamp(), 0);
+        assertEq(acvault.lastDepositTimestamp(), 0);
     }
 
     //===Setters===
@@ -209,17 +213,115 @@ contract AutoCompVaultTest is Test {
     }
 
     function testDeposit() public {
-        uint256 sharesBefore = acvault.sharesOf(alice);
         vm.startPrank(alice);
         token.approve(address(acvault), 1e18);
+        vm.expectEmit(true, false, false, true);
+        uint256 shareAmt = 1e18 * 1e18 / acvault.getPPFS();
+        emit Deposited(alice, 1e18, shareAmt);
         acvault.deposit(IDepositToken(address(token)), 1e18);
-        assertEq(acvault.totalDeposited(), 1e18);
-
-        uint256 sharesAfter = acvault.sharesOf(alice);
-        assertTrue(sharesAfter > sharesBefore);
-        assertTrue(sharesAfter == 1e18); // when 1st time deposit
+        assertTrue(acvault.depositOf(alice) == 1e18);
+        assertTrue(acvault.totalDepositBalance() == 1e18);
         vm.stopPrank();
     }
 
-    // ----withdraw----
+    // ----redeem----
+    function testRevertRedeemSomeWhenZeroAmtParsed() public {
+        vm.startPrank(alice);
+
+        // deposit
+        token.approve(address(acvault), 1e18);
+        vm.expectEmit(true, false, false, true);
+        uint256 shareAmt = 1e18 * 1e18 / acvault.getPPFS();
+        emit Deposited(alice, 1e18, shareAmt);
+        acvault.deposit(IDepositToken(address(token)), 1e18);
+
+        // redeem some
+        vm.expectRevert(AutoCompVault.ZeroAmount.selector);
+        acvault.redeem(0);
+        assertTrue(acvault.sharesOf(alice) == shareAmt);
+
+        vm.stopPrank();
+    }
+
+    function testRevertRedeemSomeWhenInsufficientAmtParsed() public {
+        vm.startPrank(alice);
+
+        // deposit
+        token.approve(address(acvault), 1e18);
+        vm.expectEmit(true, false, false, true);
+        uint256 shareAmt = 1e18 * 1e18 / acvault.getPPFS();
+        emit Deposited(alice, 1e18, shareAmt);
+        acvault.deposit(IDepositToken(address(token)), 1e18);
+
+        // redeem some
+        vm.expectRevert(AutoCompVault.InsufficientShareBalance.selector);
+        acvault.redeem(shareAmt + 1);
+        assertTrue(acvault.sharesOf(alice) == shareAmt);
+
+        vm.stopPrank();
+    }
+
+    function testRevertRedeemWhenPaused() public {
+        vm.startPrank(alice);
+
+        // deposit
+        token.approve(address(acvault), 1e18);
+        vm.expectEmit(true, false, false, true);
+        uint256 shareAmt = 1e18 * 1e18 / acvault.getPPFS();
+        emit Deposited(alice, 1e18, shareAmt);
+        acvault.deposit(IDepositToken(address(token)), 1e18);
+
+        vm.stopPrank();
+
+        acvault.pause();
+
+        vm.startPrank(alice);
+
+        // redeem some
+        vm.expectRevert("Pausable: paused");
+        acvault.redeem(shareAmt - 1);
+        assertTrue(acvault.sharesOf(alice) != 0);
+
+        vm.stopPrank();
+    }
+
+    function testRedeemSome() public {
+        vm.startPrank(alice);
+
+        // deposit
+        token.approve(address(acvault), 1e18);
+        vm.expectEmit(true, false, false, true);
+        uint256 shareAmt = 1e18 * 1e18 / acvault.getPPFS();
+        emit Deposited(alice, 1e18, shareAmt);
+        acvault.deposit(IDepositToken(address(token)), 1e18);
+
+        // redeem some
+        vm.expectEmit(true, false, false, true);
+        uint256 redeemableAmount = (1) * acvault.getPPFS() / 1e18;
+        emit Redeemed(alice, 1, redeemableAmount);
+        acvault.redeem(1);
+        assertTrue(acvault.sharesOf(alice) != 0);
+
+        vm.stopPrank();
+    }
+
+    function testRedeemAll() public {
+        vm.startPrank(alice);
+
+        // deposit
+        token.approve(address(acvault), 1e18);
+        vm.expectEmit(true, false, false, true);
+        uint256 shareAmt = 1e18 * 1e18 / acvault.getPPFS();
+        emit Deposited(alice, 1e18, shareAmt);
+        acvault.deposit(IDepositToken(address(token)), 1e18);
+
+        // redeem
+        vm.expectEmit(true, false, false, true);
+        uint256 redeemableAmount = shareAmt * acvault.getPPFS() / 1e18;
+        emit Redeemed(alice, shareAmt, redeemableAmount);
+        acvault.redeem(shareAmt);
+        assertTrue(acvault.sharesOf(alice) == 0);
+
+        vm.stopPrank();
+    }
 }

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol"; // TODO: for debugging, not production
+import "forge-std/console.sol"; // NOTE: for debugging, not production
 import {AutoCompVault} from "src/AutoCompVault.sol";
 import "src/DepositToken.sol";
 import "src/interfaces/IDepositToken.sol";
@@ -29,6 +29,10 @@ contract AutoCompVaultTest is Test {
     address public dave;
     address public eve;
     address public isaac;
+
+    // events
+    event Deposited(address indexed user, uint256 depositAmount, uint256 shareAmount);
+    event Redeemed(address indexed user, uint256 shareAmount, uint256 redeemableAmount);
 
     function setUp() public {
         // set addresses
@@ -71,13 +75,17 @@ contract AutoCompVaultTest is Test {
 
     // ----deposit----
 
-    function testDepositTwice() public {
-        uint256 sharesBefore = acvault.sharesOf(alice);
+    function testDeposit2() public {
         vm.startPrank(alice);
 
         token.approve(address(acvault), 1e18);
+        vm.expectEmit(true, false, false, true);
+        uint256 receiptAmt = 1e18 * 1e18 / acvault.getPPFS();
+        emit Deposited(alice, 1e18, receiptAmt);
         acvault.deposit(IDepositToken(address(token)), 1e18); // 1st deposit
-        console.log("amount deposited after 1st deposit: ", acvault.totalDeposited());
+        assertTrue(acvault.depositOf(alice) == 1e18);
+        assertTrue(acvault.totalDepositBalance() == 1e18);
+        console.log("amount deposited after 1st deposit: ", acvault.totalDepositBalance());
         console.log("shares received after 1st deposit: ", acvault.sharesOf(alice));
 
         console.log("========");
@@ -89,63 +97,66 @@ contract AutoCompVaultTest is Test {
 
         vm.stopPrank();
 
-        console.log("amount deposited after 2nd deposit: ", acvault.totalDeposited());
+        console.log("amount deposited after 2nd deposit: ", acvault.totalDepositBalance());
         console.log("shares received after 2nd deposit: ", acvault.sharesOf(alice));
-
-        uint256 sharesAfter = acvault.sharesOf(alice);
-        assertTrue(sharesAfter > sharesBefore); // after 2 deposits
     }
 
-    function testDepositThrice() public {
+    function testDeposit3() public {
         // uint256 sharesBefore = acvault.sharesOf(alice);
         vm.startPrank(alice);
 
         token.approve(address(acvault), 1e18);
+        vm.expectEmit(true, false, false, true);
+        uint256 receiptAmt = 1e18 * 1e18 / acvault.getPPFS();
+        emit Deposited(alice, 1e18, receiptAmt);
         acvault.deposit(IDepositToken(address(token)), 1e18); // 1st deposit
-        console.log("alice's deposited amount after 1st deposit: ", acvault.depositedOf(alice));
-        console.log("total amount deposited after 1st deposit: ", acvault.totalDeposited());
-        console.log("alice's received shares after 1st deposit: ", acvault.sharesOf(alice));
-        console.log("total received shares after 1st deposit: ", acvault.totalShares());
+        assertTrue(acvault.depositOf(alice) == 1e18);
+        assertTrue(acvault.totalDepositBalance() == 1e18);
+        console.log("amount deposited after 1st deposit: ", acvault.totalDepositBalance());
+        console.log("shares received after 1st deposit: ", acvault.sharesOf(alice));
 
         console.log("========");
         // set timestamp to 2 months later
         vm.warp(block.timestamp + 2 * ONE_MONTH);
 
         token.approve(address(acvault), 15e18);
+        vm.expectEmit(true, false, false, true);
+        uint256 receiptAmt2 = 15e18 * 1e18 / acvault.getPPFS();
+        emit Deposited(alice, 15e18, receiptAmt2);
         acvault.deposit(IDepositToken(address(token)), 15e18); // 2nd deposit
-        console.log("alice's deposited amount after 2nd deposit: ", acvault.depositedOf(alice));
-        console.log("total amount deposited after 2nd deposit: ", acvault.totalDeposited());
+        console.log("alice's deposited amount after 2nd deposit: ", acvault.depositOf(alice));
+        console.log("total amount deposited after 2nd deposit: ", acvault.totalDepositBalance());
         console.log("alice's received shares after 2nd deposit: ", acvault.sharesOf(alice));
         console.log("total received shares after 2nd deposit: ", acvault.totalShares());
-
-        // uint256 sharesAfter = acvault.sharesOf(alice);
-        // assertTrue(sharesAfter > sharesBefore); // after 2 deposits
 
         console.log("========");
         // set timestamp to 4 months later
         vm.warp(block.timestamp + 4 * ONE_MONTH);
 
         token.approve(address(acvault), 20e18);
+        vm.expectEmit(true, false, false, true);
+        uint256 receiptAmt3 = 20e18 * 1e18 / acvault.getPPFS();
+        emit Deposited(alice, 20e18, receiptAmt3);
         acvault.deposit(IDepositToken(address(token)), 20e18); // 2nd deposit
-        console.log("alice's deposited amount after 3rd deposit: ", acvault.depositedOf(alice));
-        console.log("total amount deposited after 3rd deposit: ", acvault.totalDeposited());
+        console.log("alice's deposited amount after 3rd deposit: ", acvault.depositOf(alice));
+        console.log("total amount deposited after 3rd deposit: ", acvault.totalDepositBalance());
         console.log("alice's received shares after 3rd deposit: ", acvault.sharesOf(alice));
         console.log("total received shares after 3rd deposit: ", acvault.totalShares());
 
         vm.stopPrank();
-
-        // uint256 sharesAfter = acvault.sharesOf(alice);
-        // assertTrue(sharesAfter > sharesBefore); // after 2 deposits
     }
 
-    function testDepositFour() public {
+    function testDeposit4() public {
         // uint256 sharesBefore = acvault.sharesOf(alice);
         vm.startPrank(alice);
 
         token.approve(address(acvault), 1e18);
+        vm.expectEmit(true, false, false, true);
+        uint256 receiptAmt = 1e18 * 1e18 / acvault.getPPFS();
+        emit Deposited(alice, 1e18, receiptAmt);
         acvault.deposit(IDepositToken(address(token)), 1e18); // 1st deposit
-        console.log("alice's deposited amount after 1st deposit: ", acvault.depositedOf(alice));
-        console.log("total amount deposited after 1st deposit: ", acvault.totalDeposited());
+        console.log("alice's deposited amount after 1st deposit: ", acvault.depositOf(alice));
+        console.log("total amount deposited after 1st deposit: ", acvault.totalDepositBalance());
         console.log("alice's received shares after 1st deposit: ", acvault.sharesOf(alice));
         console.log("total received shares after 1st deposit: ", acvault.totalShares());
 
@@ -154,23 +165,26 @@ contract AutoCompVaultTest is Test {
         vm.warp(block.timestamp + 2 * ONE_MONTH);
 
         token.approve(address(acvault), 15e18);
+        vm.expectEmit(true, false, false, true);
+        uint256 receiptAmt2 = 15e18 * 1e18 / acvault.getPPFS();
+        emit Deposited(alice, 15e18, receiptAmt2);
         acvault.deposit(IDepositToken(address(token)), 15e18); // 2nd deposit
-        console.log("alice's deposited amount after 2nd deposit: ", acvault.depositedOf(alice));
-        console.log("total amount deposited after 2nd deposit: ", acvault.totalDeposited());
+        console.log("alice's deposited amount after 2nd deposit: ", acvault.depositOf(alice));
+        console.log("total amount deposited after 2nd deposit: ", acvault.totalDepositBalance());
         console.log("alice's received shares after 2nd deposit: ", acvault.sharesOf(alice));
         console.log("total received shares after 2nd deposit: ", acvault.totalShares());
-
-        // uint256 sharesAfter = acvault.sharesOf(alice);
-        // assertTrue(sharesAfter > sharesBefore); // after 2 deposits
 
         console.log("========");
         // set timestamp to 3 months later
         vm.warp(block.timestamp + 3 * ONE_MONTH);
 
         token.approve(address(acvault), 20e18);
+        vm.expectEmit(true, false, false, true);
+        uint256 receiptAmt3 = 20e18 * 1e18 / acvault.getPPFS();
+        emit Deposited(alice, 20e18, receiptAmt3);
         acvault.deposit(IDepositToken(address(token)), 20e18); // 2nd deposit
-        console.log("alice's deposited amount after 3rd deposit: ", acvault.depositedOf(alice));
-        console.log("total amount deposited after 3rd deposit: ", acvault.totalDeposited());
+        console.log("alice's deposited amount after 3rd deposit: ", acvault.depositOf(alice));
+        console.log("total amount deposited after 3rd deposit: ", acvault.totalDepositBalance());
         console.log("alice's received shares after 3rd deposit: ", acvault.sharesOf(alice));
         console.log("total received shares after 3rd deposit: ", acvault.totalShares());
 
@@ -179,17 +193,80 @@ contract AutoCompVaultTest is Test {
         vm.warp(block.timestamp + 4 * ONE_MONTH);
 
         token.approve(address(acvault), 25e18);
+        vm.expectEmit(true, false, false, true);
+        uint256 receiptAmt4 = 25e18 * 1e18 / acvault.getPPFS();
+        emit Deposited(alice, 25e18, receiptAmt4);
         acvault.deposit(IDepositToken(address(token)), 25e18); // 2nd deposit
-        console.log("alice's deposited amount after 4th deposit: ", acvault.depositedOf(alice));
-        console.log("total amount deposited after 4th deposit: ", acvault.totalDeposited());
+        console.log("alice's deposited amount after 4th deposit: ", acvault.depositOf(alice));
+        console.log("total amount deposited after 4th deposit: ", acvault.totalDepositBalance());
         console.log("alice's received shares after 4th deposit: ", acvault.sharesOf(alice));
         console.log("total received shares after 4th deposit: ", acvault.totalShares());
 
         vm.stopPrank();
-
-        // uint256 sharesAfter = acvault.sharesOf(alice);
-        // assertTrue(sharesAfter > sharesBefore); // after 2 deposits
     }
 
-    // ----withdraw----
+    // ----redeem----
+
+    /// @dev test 2 times redeem after 1 time deposit by alice
+    function testDRR() public {
+        vm.startPrank(alice);
+
+        // deposit
+        token.approve(address(acvault), 1e18);
+        vm.expectEmit(true, false, false, true);
+        uint256 shareAmt = 1e18 * 1e18 / acvault.getPPFS();
+        emit Deposited(alice, 1e18, shareAmt);
+        acvault.deposit(IDepositToken(address(token)), 1e18);
+
+        // redeem some
+        vm.expectEmit(true, false, false, true);
+        uint256 redeemableAmount = (1) * acvault.getPPFS() / 1e18;
+        emit Redeemed(alice, 1, redeemableAmount);
+        acvault.redeem(1);
+        assertTrue(acvault.sharesOf(alice) != 0);
+
+        // redeem some more
+        vm.expectEmit(true, false, false, true);
+        uint256 redeemableAmount2 = (5) * acvault.getPPFS() / 1e18;
+        emit Redeemed(alice, 5, redeemableAmount2);
+        acvault.redeem(5);
+        assertTrue(acvault.sharesOf(alice) != 0);
+
+        vm.stopPrank();
+    }
+
+    /// @dev test 3 times redeem after 1 time deposit by alice
+    function testDRRR() public {
+        vm.startPrank(alice);
+
+        // deposit
+        token.approve(address(acvault), 1e18);
+        vm.expectEmit(true, false, false, true);
+        uint256 shareAmt = 1e18 * 1e18 / acvault.getPPFS();
+        emit Deposited(alice, 1e18, shareAmt);
+        acvault.deposit(IDepositToken(address(token)), 1e18);
+
+        // redeem some
+        vm.expectEmit(true, false, false, true);
+        uint256 redeemableAmount = (1) * acvault.getPPFS() / 1e18;
+        emit Redeemed(alice, 1, redeemableAmount);
+        acvault.redeem(1);
+        assertTrue(acvault.sharesOf(alice) != 0);
+
+        // redeem some more
+        vm.expectEmit(true, false, false, true);
+        uint256 redeemableAmount2 = (5) * acvault.getPPFS() / 1e18;
+        emit Redeemed(alice, 5, redeemableAmount2);
+        acvault.redeem(5);
+        assertTrue(acvault.sharesOf(alice) != 0);
+
+        // redeem some more more
+        vm.expectEmit(true, false, false, true);
+        uint256 redeemableAmount3 = (10) * acvault.getPPFS() / 1e18;
+        emit Redeemed(alice, 10, redeemableAmount3);
+        acvault.redeem(10);
+        assertTrue(acvault.sharesOf(alice) != 0);
+
+        vm.stopPrank();
+    }
 }

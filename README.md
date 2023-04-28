@@ -7,6 +7,8 @@ This is a vault that autocompound the yield when deposited.
 > Stake Amount & Deposit Amount are used synonymously.
 >
 > Shares Amount & Receipt Amount are used synonymously.
+>
+> Redeemable Amount is calculated during redeeming i.e. `redeem` function. Here, the deposited amount can't be withdrawn unlike in a simple vault (without auto-compounding yield). Here, the deposited amount can only be redeemed by giving back the receipt tokens.
 
 To deploy the contract with an APY of 0.1% (0.001 in decimal representation) per day, you would use the following value as the constructor argument:
 
@@ -37,13 +39,13 @@ sequenceDiagram
 actor Alice
 participant Vault
 participant CRVstETH
-participant RCRVstETH
+participant SCRVstETH
 Alice->>CRVstETH: `approve` deposit tokens to Vault
 Alice->>Vault: `deposit` for investment
 Vault->+CRVstETH: `transferFrom` tokens
 CRVstETH->>-Vault: to Vault
-Vault->+RCRVstETH: `mint` tokens
-RCRVstETH->>-Alice: to Alice
+Vault->+SCRVstETH: `mint` tokens
+SCRVstETH->>-Alice: to Alice
 ```
 
 ---
@@ -55,9 +57,9 @@ sequenceDiagram
 actor Alice
 participant Vault
 participant CRVstETH
-participant RCRVstETH
+participant SCRVstETH
 Alice->>Vault: `withdraw` to redeem CRVstETH
-Vault->>RCRVstETH: `burn` tokens
+Vault->>SCRVstETH: `burn` tokens
 Vault->+CRVstETH: `transfer` tokens
 CRVstETH->>-Alice: to Alice
 ```
