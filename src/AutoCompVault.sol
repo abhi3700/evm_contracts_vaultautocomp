@@ -129,6 +129,10 @@ contract AutoCompVault is Ownable, Pausable, ReentrancyGuard, ERC20 {
         return ppfs;
     }
 
+    // TODO: add this function
+    /// @dev Get redeemable amount for a given user address for a given share amount
+    function getRedeemableAmount() public view returns (uint256) {}
+
     // ======private======
     function _updateVaultIndivAndTotOnDeposit(
         uint256 _amount,
@@ -228,7 +232,7 @@ contract AutoCompVault is Ownable, Pausable, ReentrancyGuard, ERC20 {
         emit Deposited(msg.sender, _amount, shareAmount);
     }
 
-    /// @dev Redeem deposited tokens from the vault
+    /// @dev Redeem tokens (including autocompound) from the vault
     /// NOTE: Here, the deposited amount can't be withdrawn unlike
     /// in a simple vault (without auto-compounding yield).
     /// Here, the deposited amount can only be redeemed by giving back the share tokens.

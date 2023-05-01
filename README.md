@@ -58,7 +58,7 @@ actor Alice
 participant Vault
 participant CRVstETH
 participant SCRVstETH
-Alice->>Vault: `withdraw` to redeem CRVstETH
+Alice->>Vault: `redeem` to withdraw CRVstETH (including accrued interest).
 Vault->>SCRVstETH: `burn` tokens
 Vault->+CRVstETH: `transfer` tokens
 CRVstETH->>-Alice: to Alice
@@ -122,6 +122,14 @@ Get a gas report:
 
 ```sh
 $ forge test --gas-report
+```
+
+---
+
+To get the snapshot:
+
+```sh
+$ forge snapshot
 ```
 
 ### Lint
