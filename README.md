@@ -99,7 +99,7 @@ $ forge coverage
 Deploy to Anvil:
 
 ```sh
-$ forge script script/DeployFoo.s.sol --broadcast --fork-url http://localhost:8545
+$ forge script script/AutoCompVault.s.sol:AutoCompVaultScript --rpc-url http://localhost:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --broadcast
 ```
 
 For this script to work, you need to have a `MNEMONIC` environment variable set to a valid
@@ -107,6 +107,25 @@ For this script to work, you need to have a `MNEMONIC` environment variable set 
 
 For instructions on how to deploy to a testnet or mainnet, check out the
 [Solidity Scripting](https://book.getfoundry.sh/tutorials/solidity-scripting.html) tutorial.
+
+### Deploy & Verify
+
+Deploy to Goerli and verify on Etherscan:
+
+Set the `.env` as per the [`.env.example`](./.env.example) file.
+
+```sh
+$ source .env
+$ forge script script/AutoCompVault.s.sol --rpc-url $GOERLI_RPC_URL --private-key $DEPLOYER_PRIVATE_KEY --broadcast --verify -vvvvv
+```
+
+> With logs enabled using `-vvvvv`, you can see the transaction hash and the etherscan link.
+
+### Flatten
+
+```sh
+$ forge flatten src/AutoCompoundVault.sol -o flatten/src/AutoCompoundVaultFlattened.sol
+```
 
 ### Format
 
